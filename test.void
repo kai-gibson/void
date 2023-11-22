@@ -1,0 +1,12 @@
+// comment 
+// another one
+
+(i8) main = {
+    i8 x = 100;    
+    i8 y = 10;
+    x+=y-1;
+}
+
+(i32) func_one = {
+    ret 100
+};
