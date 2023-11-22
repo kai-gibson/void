@@ -6,6 +6,13 @@
 #include <array>
 #include <functional>
 #include <regex>
+/*
+    DONE: Basic lexer
+    TODO:
+        - Basic syntax parser
+        - Basic emitter
+
+*/
 
 // utility funcs
 template<class _container, class _Ty>
