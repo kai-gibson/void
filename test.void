@@ -1,3 +1,5 @@
-file content
-test
-test
+import fmt
+
+const main = fn() -> i32 {
+  return 1;
+}
