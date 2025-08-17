@@ -1,0 +1,8 @@
+[
+{
+  "directory": "/Users/kai/Documents/code/cxx/void/build",
+  "command": "/usr/local/opt/llvm/bin/clang++   -std=c++23 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX14.4.sdk -mmacosx-version-min=14.2 -o CMakeFiles/void.dir/src/void.cxx.o -c /Users/kai/Documents/code/cxx/void/src/void.cxx",
+  "file": "/Users/kai/Documents/code/cxx/void/src/void.cxx",
+  "output": "CMakeFiles/void.dir/src/void.cxx.o"
+}
+]

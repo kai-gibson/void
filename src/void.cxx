@@ -12,7 +12,7 @@ template <class Container, class Value>
 bool in_list(Container& list, const Value& value) {
   if (std::find(list.begin(), list.end(), value) != list.end()) {
     return true;
-  } 
+  }
 
   return false;
 }
@@ -98,26 +98,30 @@ Result<std::string> read_entire_file(const std::string_view filename) {
 }
 
 const constexpr auto KEYWORDS = {
-    "fn",        "struct", "enum",  "has",      "loop",
-    "in",        "if",     "break", "continue", "else",
-    "interface", "switch", "const", "var",      "import",
+    "fn",    "struct", "enum",     "has",    "loop",      "in",
+    "if",    "break",  "continue", "else",   "interface", "switch",
+    "const", "var",    "import",   "return", "module",
 };
 
 const constexpr auto OPERATORS = {
-    "<", ">", "?", "!", "!=", "==", "and", "or", "xor",
+    "<", ">", "?",  "!",  "!=", "==", "and", "or", "xor", "+",  "-", "*",
+    "/", "%", "++", "--", "=",  "+=", "-=",  "*=", "/=",  "%=", "?",
 };
 
-const constexpr auto SYMBOLS = {
-    ";",
-    ":",
-    "=",
-};
+const constexpr auto SYMBOLS = {";", ":", "=", ",", ".", "{",
+                                "}", "[", "]", "(", ")", "->"};
 
 const constexpr auto WHITESPACE = {
     " ",
     "\t",
     "\n",
     "\r",
+};
+
+struct SourceLocation {
+  std::string file_name;
+  int64_t line;
+  int64_t column;
 };
 
 struct Token {
@@ -134,63 +138,87 @@ struct Token {
 
   Type type;
   std::string value;
+  SourceLocation location;
 
-  Token(Type type, std::string value) : type(type), value(std::move(value)) {}
-  Token() :type(Type::None) {}
+  Token(Type type, std::string value, SourceLocation location)
+      : type(type), value(std::move(value)), location(location) {}
+  Token() : type(Type::None) {}
 
   void reset() {
     this->type = Type::None;
     this->value.clear();
+    this->location = SourceLocation{"", 0, 0};
   }
 };
 
 std::ostream& operator<<(std::ostream& os, Token::Type& token_type) {
   switch (token_type) {
-  case Token::Type::None:
-		os << "None";
-    break;
-  case Token::Type::Keyword:
-		os << "Keyword";
-    break;
-  case Token::Type::Operator:
-		os << "Operator";
-    break;
-  case Token::Type::Symbol:
-		os << "Symbol";
-    break;
-  case Token::Type::Identifier:
-		os << "Identifier";
-    break;
-  case Token::Type::Literal:
-		os << "Literal";
-    break;
-  case Token::Type::Comment:
-		os << "Comment";
-    break;
-  case Token::Type::Whitespace:
-		os << "Whitespace";
-    break;
+    case Token::Type::None:
+      os << "None";
+      break;
+    case Token::Type::Keyword:
+      os << "Keyword";
+      break;
+    case Token::Type::Operator:
+      os << "Operator";
+      break;
+    case Token::Type::Symbol:
+      os << "Symbol";
+      break;
+    case Token::Type::Identifier:
+      os << "Identifier";
+      break;
+    case Token::Type::Literal:
+      os << "Literal";
+      break;
+    case Token::Type::Comment:
+      os << "Comment";
+      break;
+    case Token::Type::Whitespace:
+      os << "Whitespace";
+      break;
   }
 
   return os;
 }
 
 std::ostream& operator<<(std::ostream& os, Token& token) {
-  return os << "{" 
-    << ".type=" << token.type 
-    << ", .value=\"" << token.value 
-    << "\"}";
+  return os << "{"
+            << ".type=" << token.type 
+            << ", .value=\"" << token.value << "\""
+            << ", .location={"
+              << "\"file_name\":\"" << token.location.file_name << "\", "
+              << "\"line\":" << token.location.line << ", "
+              << "\"column\":" << token.location.column
+              << "}}";
 }
 
-std::vector<Token> parse_file(const std::string& file_data) {
+std::vector<Token> parse_file(
+  const std::string& file_name, 
+  const std::string& file_data
+) {
   std::vector<Token> tokens;
-  Token current_token(Token::Type::None, "");
+  Token current_token(Token::Type::None, "", SourceLocation{});
 
   enum class CommentType : uint8_t { MultiLine, SingleLine } comment_type;
 
+  int64_t line = 1;
+  int64_t column = 0;
   // break up into words, find comments
-  for (auto chr : file_data) {
-    if (in_list(WHITESPACE, std::string(1, chr))) {
+  for (int64_t i = 0; i < file_data.size(); i++) {
+    char chr = file_data[i];
+
+    auto is_whitespace = in_list(WHITESPACE, std::string(1, chr));
+    auto is_symbol = in_list(SYMBOLS, std::string(1, chr));
+
+    if (chr == '\n') {
+      line++;
+      column = 1;
+    } else {
+      column++;
+    }
+
+    if (is_whitespace or is_symbol) {
       if (current_token.type == Token::Type::Comment) {
         if (chr == '\n' and comment_type == CommentType::SingleLine) {
           tokens.push_back(std::move(current_token));
@@ -206,14 +234,30 @@ std::vector<Token> parse_file(const std::string& file_data) {
         tokens.push_back(std::move(current_token));
       }
 
-      // add whitespace character too
-      current_token.type = Token::Type::Whitespace;
+      // add whitespace or symbol character as a token
+      if (is_whitespace) {
+        current_token.type = Token::Type::Whitespace;
+      } else if (is_symbol) {
+        current_token.type = Token::Type::Symbol;
+      } 
+
       current_token.value = chr;
+      current_token.location = SourceLocation{
+        .file_name = file_name, 
+        .line = line,
+        .column = column, 
+      };  
       tokens.push_back(std::move(current_token));
 
       current_token.reset();
     } else {
       current_token.value.push_back(chr);
+      // todo add location info
+      current_token.location = SourceLocation{
+        .file_name = file_name, 
+        .line = line,
+        .column = column, 
+      };  
     }
 
     if (chr == '/' and current_token.value.back() == '/') {
@@ -225,23 +269,13 @@ std::vector<Token> parse_file(const std::string& file_data) {
     }
 
     if (current_token.type == Token::Type::Comment and
-        comment_type == CommentType::MultiLine) { 
+        comment_type == CommentType::MultiLine) {
       if (chr == '/' and current_token.value.back() == '*') {
-
       }
     }
   }
 
-  /*
-    Keyword,
-    Operator,
-    Symbol,
-    Identifier,
-    Literal,
-    Comment,
-    Whitespace,
-  */
-
+  // identify remaining tokens
   for (auto& token : tokens) {
     // we already know whitespace characters and comments
     if (token.type == Token::Type::Whitespace) continue;
@@ -254,14 +288,16 @@ std::vector<Token> parse_file(const std::string& file_data) {
     } else if (in_list(SYMBOLS, token.value)) {
       token.type = Token::Type::Symbol;
     } else {
-      token.type = Token::Type::Identifier;
-      // literal
-      // identifier
+      // token.type = Token::Type::Identifier;
+      //  literal
+      //  identifier
     }
   }
 
   return tokens;
 }
+
+void create_ast() {}
 
 int main(int argc, char** argv) {
   std::cout << "start\n";
@@ -276,8 +312,11 @@ int main(int argc, char** argv) {
     return EXIT_FAILURE;
   }
 
-  auto tokens = parse_file(*file_data);
+  const char* last_slash = strrchr(argv[1], '/');
+
+  auto tokens = parse_file((last_slash ? last_slash + 1 : argv[1]), *file_data);
   
+
   for (auto& token : tokens) {
     std::cout << token << "\n";
   }
