@@ -7,7 +7,16 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-add_executable(void src/void.cxx)
+set(SOURCES 
+  src/void.cxx
+  src/error.cxx
+  src/types.cxx
+  src/utils.cxx
+  src/parser.cxx
+)
+
+add_executable(void ${SOURCES})
+target_include_directories(void PRIVATE include)
 
 add_custom_command(
     TARGET void
